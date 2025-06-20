@@ -11,7 +11,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         try:
-            filepath = os.path.normpath(os.path.join(settings.BASE_DIR, '..', 'data', 'ingredients.json'))
+            filepath = os.path.normpath(os.path.join(settings.BASE_DIR, 'data', 'ingredients.json'))
             with open(filepath, encoding='utf-8') as f:
                 existing = set(
                     Ingredient.objects.values_list('name', 'measurement_unit')
