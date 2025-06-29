@@ -134,7 +134,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 ALLOWED_IMAGE_TYPES = ['jpeg', 'jpg', 'png', 'gif']
 MAX_IMAGE_SIZE = 2 * 1024 * 1024 
