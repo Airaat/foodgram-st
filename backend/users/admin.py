@@ -3,7 +3,6 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html
 
-from recipes.models import Subscription
 from .models import User
 
 
@@ -32,7 +31,10 @@ class UserAdmin(BaseUserAdmin):
     @mark_safe
     def avatar_tag(self, obj):
         if obj.avatar:
-            return format_html('<img src="{}" width="40" height="40" style="border-radius:50%;" />', obj.avatar.url)
+            return format_html(
+                '<img src="{}" width="40" height="40" style="border-radius:50%;" />',
+                obj.avatar.url
+            )
         return "—"
 
     @admin.display(description='Рецептов')

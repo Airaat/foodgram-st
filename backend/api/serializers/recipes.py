@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from drf_extra_fields.fields import Base64ImageField
 
-from recipes.models import Recipe, Ingredient, RecipeIngredient
 from api.serializers.users import UserSerializer
+from recipes.models import Recipe, Ingredient, RecipeIngredient
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -28,6 +28,7 @@ class RecipeIngredientReadSerializer(serializers.ModelSerializer):
         model = RecipeIngredient
         fields = ('id', 'name', 'measurement_unit', 'amount')
         read_only_fields = fields
+
 
 class IngredientAmountSerializer(serializers.Serializer):
     id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())

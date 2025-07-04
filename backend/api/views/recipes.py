@@ -1,30 +1,28 @@
-from django.http import FileResponse, Http404
+from datetime import datetime
+
+from django.http import FileResponse
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.contrib.auth import get_user_model
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from datetime import datetime
 
-from django.contrib.auth import get_user_model
-from recipes.models import (
-    Recipe, Ingredient, ShoppingCart,
-    Favorite, RecipeIngredient
-)
+from api.pagination import CustomPagination
+from api.filters import RecipeFilter
+from api.permissions import IsAuthorOrReadOnly
 from api.serializers.recipes import (
     RecipeSerializer, ShortRecipeSerializer,
     IngredientSerializer
 )
-from api.pagination import CustomPagination
-from api.filters import RecipeFilter
-from api.permissions import IsAuthorOrReadOnly
+from recipes.models import (
+    Recipe, Ingredient, ShoppingCart,
+    Favorite, RecipeIngredient
+)
 
-
-import io
 
 User = get_user_model()
 
@@ -131,11 +129,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'ingredient__measurement_unit'
         ).annotate(total=Sum('amount')).order_by('ingredient__name')
 
-
         recipes = Recipe.objects.filter(in_shopping_cart__user=user)
 
-        lines = [f'Список покупок — {datetime.now().strftime("%d.%m.%Y %H:%M")}']
-        lines.append('')
+        lines = [f'Список покупок — {datetime.now().strftime("%d.%m.%Y %H:%M")}', '']
 
         for i, item in enumerate(ingredients, start=1):
             name = item["ingredient__name"].capitalize()
@@ -156,7 +152,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='get-link', permission_classes=[AllowAny])
     def get_link(self, request, pk=None):
-        recipe = get_object_or_404(Recipe, pk=pk)
+        get_object_or_404(Recipe, pk=pk)
 
         short_path = reverse('recipes:short-link-redirect', kwargs={'recipe_id': pk})
         full_url = request.build_absolute_uri(short_path)

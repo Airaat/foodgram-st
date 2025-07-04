@@ -6,12 +6,12 @@ from django.db import models
 class User(AbstractUser):
     email = models.EmailField(
         unique=True,
-        max_length=254,
+        max_length=100,
         verbose_name='Электронная почта',
         help_text='Укажите уникальный email'
     )
     username = models.CharField(
-        max_length=150,
+        max_length=50,
         unique=True,
         validators=[RegexValidator(
             regex=r'^[\w.@+-]+\Z',
@@ -21,12 +21,12 @@ class User(AbstractUser):
         help_text='Введите уникальный ник'
     )
     first_name = models.CharField(
-        max_length=150,
+        max_length=50,
         verbose_name='Имя',
         help_text='Укажите имя'
     )
     last_name = models.CharField(
-        max_length=150,
+        max_length=50,
         verbose_name='Фамилия',
         help_text='Укажите фамилию'
     )

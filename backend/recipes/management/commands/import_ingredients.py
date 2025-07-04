@@ -1,5 +1,5 @@
-import json
 import os
+import json
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -11,7 +11,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         try:
-            filepath = os.path.normpath(os.path.join(settings.BASE_DIR, 'data', 'ingredients.json'))
+            target = os.path.join(settings.BASE_DIR, 'data', 'ingredients.json')
+            filepath = os.path.normpath(target)
             with open(filepath, encoding='utf-8') as f:
                 existing = set(
                     Ingredient.objects.values_list('name', 'measurement_unit')
@@ -21,9 +22,13 @@ class Command(BaseCommand):
                     for item in json.load(f)
                     if (item['name'], item['measurement_unit']) not in existing
                 ]
-                created = Ingredient.objects.bulk_create(new_ingredients, ignore_conflicts=True)
+                created = Ingredient.objects.bulk_create(
+                    new_ingredients,
+                    ignore_conflicts=True
+                )
+                amount = len(created)
                 self.stdout.write(
-                    self.style.SUCCESS(f'Добавлено {len(created)} новых ингредиентов.')
+                    self.style.SUCCESS(f'Добавлено {amount} новых ингредиентов.')
                 )
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Ошибка импорта: {e}'))

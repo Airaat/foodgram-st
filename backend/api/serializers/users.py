@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from djoser.serializers import UserSerializer as DjoserUserSerializer
 from django.contrib.auth import get_user_model
+
+from api.serializers.recipes import ShortRecipeSerializer
 from recipes.models import Subscription
 
 User = get_user_model()
@@ -43,7 +45,6 @@ class SubscriptionUserSerializer(UserSerializer):
         read_only_fields = fields
 
     def get_recipes(self, user):
-        from api.serializers.recipes import ShortRecipeSerializer
         request = self.context.get('request')
         recipes_limit = request.query_params.get('recipes_limit')
         recipes = user.recipes.all()

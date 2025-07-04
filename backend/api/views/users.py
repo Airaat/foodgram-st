@@ -1,3 +1,5 @@
+import base64
+
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -7,11 +9,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_extra_fields.fields import Base64ImageField
 from django.contrib.auth import get_user_model
 from django.db.models import Count
-from django.core.files.base import ContentFile
 from djoser.serializers import UserCreateSerializer, SetPasswordSerializer
-
-import base64
-
 
 from api.serializers.users import (
     UserSerializer,
@@ -19,7 +17,6 @@ from api.serializers.users import (
 )
 from api.pagination import CustomPagination
 from recipes.models import Subscription
-from api.serializers.recipes import ShortRecipeSerializer
 
 User = get_user_model()
 
@@ -108,7 +105,7 @@ class UserViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(subscriptions)
         serializer = SubscriptionUserSerializer(page, many=True, context={'request': request})
         return self.get_paginated_response(serializer.data)
-    
+
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def set_password(self, request):
         serializer = SetPasswordSerializer(data=request.data, context={'request': request})
