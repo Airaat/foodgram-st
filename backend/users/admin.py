@@ -25,7 +25,7 @@ class UserAdmin(BaseUserAdmin):
 
     @admin.display(description='ФИО')
     def full_name(self, obj):
-        return f"{obj.first_name} {obj.last_name}"
+        return f'{obj.first_name} {obj.last_name}'
 
     @admin.display(description='Аватар')
     @mark_safe
@@ -43,11 +43,11 @@ class UserAdmin(BaseUserAdmin):
 
     @admin.display(description='Подписок')
     def subscriptions_count(self, obj):
-        return obj.subscriptions.count()  # ← через related_name
+        return obj.subscriptions.count()
 
     @admin.display(description='Подписчиков')
     def subscribers_count(self, obj):
-        return obj.subscribers.count()  # ← через related_name
+        return obj.subscribers.count()
 
     fieldsets = (
         (None, {

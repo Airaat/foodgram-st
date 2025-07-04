@@ -7,6 +7,7 @@ MAX_SIZE = 2 * 1024 * 1024  # 2 Mb
 UNSUPPORTED_FORMAT = 'Недопустимый формат изображения.'
 UNSUPPORTED_IMAGE_SIZE = 'Размер изображения не должен превышать 2MB.'
 
+
 def validate_image(image):
     ext = os.path.splitext(image.name)[1][1:].lower()
 

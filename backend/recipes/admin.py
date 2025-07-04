@@ -12,29 +12,23 @@ class RecipeIngredientInline(admin.TabularInline):
 class CookingTimeFilter(admin.SimpleListFilter):
     title = 'Время готовки'
     parameter_name = 'cooking_time_range'
+    STATIC_RANGES = [
+        ('fast', 'Быстрые (<30 мин)'),
+        ('medium', 'Средние (30-60 мин)'),
+        ('slow', 'Долгие (>60 мин)'),
+    ]
 
     def lookups(self, request, model_admin):
-        times = sorted(set(Recipe.objects.values_list('cooking_time', flat=True)))
-        if len(times) < 3:
-            return ()
-
-        self.n = times[int(len(times) * 0.33)]
-        self.m = times[int(len(times) * 0.66)]
-
-        return [
-            ('lt', f'Меньше {self.n} мин ({Recipe.objects.filter(cooking_time__lt=self.n).count()})'),
-            ('range', f'От {self.n} до {self.m} мин ({Recipe.objects.filter(cooking_time__gte=self.n, cooking_time__lte=self.m).count()})'),
-            ('gt', f'Больше {self.m} мин ({Recipe.objects.filter(cooking_time__gt=self.m).count()})'),
-        ]
+        return self.STATIC_RANGES
 
     def queryset(self, request, queryset):
         value = self.value()
-        if value == 'lt':
-            return queryset.filter(cooking_time__lt=self.n)
-        if value == 'range':
-            return queryset.filter(cooking_time__gte=self.n, cooking_time__lte=self.m)
-        if value == 'gt':
-            return queryset.filter(cooking_time__gt=self.m)
+        if value == 'fast':
+            return queryset.filter(cooking_time__lt=30)
+        if value == 'medium':
+            return queryset.filter(cooking_time__range=(30, 60))
+        if value == 'slow':
+            return queryset.filter(cooking_time__gt=60)
         return queryset
 
 
@@ -63,7 +57,10 @@ class RecipeAdmin(admin.ModelAdmin):
     @admin.display(description='Картинка')
     def show_image(self, recipe):
         if recipe.image:
-            return mark_safe(f'<img src="{recipe.image.url}" width="80" height="80" style="object-fit: cover;" />')
+            return mark_safe(
+                '<img src="{}" width="80" height="80" style="object-fit: cover;" />'
+                .format(recipe.image.url)
+            )
         return '—'
 
 
