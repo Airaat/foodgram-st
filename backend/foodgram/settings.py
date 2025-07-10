@@ -145,7 +145,7 @@ STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesSto
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 ALLOWED_IMAGE_TYPES = ['jpeg', 'jpg', 'png', 'gif']
-MAX_IMAGE_SIZE = 2 * 1024 * 1024 
+MAX_IMAGE_SIZE = 2 * 1024 * 1024
 
 # Internationalizations
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
