@@ -2,3 +2,7 @@
 
 По адресу http://localhost изучите фронтенд веб-приложения, а по адресу http://localhost/api/docs/ — спецификацию API.
 
+## Заполнение базы данных
+```shell
+  docker exec -it foodgram-backend python manage.py loadingredients
+```
