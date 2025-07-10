@@ -4,5 +4,5 @@
 
 ## Заполнение базы данных
 ```shell
-  docker exec -it foodgram-backend python manage.py import_ingredients
+  docker exec -it foodgram-backend python manage.py loadingredients
 ```
