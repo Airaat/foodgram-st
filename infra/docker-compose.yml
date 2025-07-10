@@ -1,18 +1,20 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:14
+    image: postgres:14-alpine
     container_name: foodgram-db
     restart: always
-    env_file:
-      - .env
+    env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pg_data:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     ports:
       - "5432:5432"
 
@@ -20,8 +22,7 @@ services:
     build: ../backend
     container_name: foodgram-backend
     restart: always
-    env_file:
-      - .env
+    env_file: .env
     command: >
       sh -c "
       python manage.py migrate --noinput &&
@@ -35,6 +36,11 @@ services:
       - media_volume:/app/media/
     depends_on:
       - db
+    healthcheck:
+      test: ["CMD", "curl -f http://localhost:8000/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     expose:
       - "8000"
 
