@@ -9,6 +9,7 @@ class IngredientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ingredient
         fields = ('id', 'name', 'measurement_unit')
+        read_only_fields = fields
 
 
 class ShortRecipeSerializer(serializers.ModelSerializer):
@@ -17,12 +18,15 @@ class ShortRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
+        read_only_fields = fields
 
 
 class RecipeIngredientReadSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField(source='ingredient.id')
     name = serializers.ReadOnlyField(source='ingredient.name')
-    measurement_unit = serializers.ReadOnlyField(source='ingredient.measurement_unit')
+    measurement_unit = serializers.ReadOnlyField(
+        source='ingredient.measurement_unit'
+    )
 
     class Meta:
         model = RecipeIngredient
@@ -31,7 +35,9 @@ class RecipeIngredientReadSerializer(serializers.ModelSerializer):
 
 
 class IngredientAmountSerializer(serializers.Serializer):
-    id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    id = serializers.PrimaryKeyRelatedField(
+        queryset=Ingredient.objects.all()
+    )
     amount = serializers.IntegerField(min_value=1)
 
 
@@ -45,30 +51,33 @@ class RecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = (
-            'id', 'author',
-            'ingredients', 'image', 'name', 'text', 'cooking_time',
+            'id', 'author', 'ingredients', 'image',
+            'name', 'text', 'cooking_time',
             'is_favorited', 'is_in_shopping_cart'
         )
 
     def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation['author'] = UserSerializer(instance.author, context=self.context).data
-        representation['ingredients'] = RecipeIngredientReadSerializer(
-            instance.recipe_ingredients.all(), many=True
+        data = super().to_representation(instance)
+        data['ingredients'] = RecipeIngredientReadSerializer(
+            instance.recipe_ingredients.all(),
+            many=True,
+            context=self.context
         ).data
         request = self.context.get('request')
-        representation['image'] = (
+        data['image'] = (
             request.build_absolute_uri(instance.image.url)
             if instance.image and request else None
         )
-        return representation
+        return data
 
     def validate_ingredients(self, value):
         if not value:
             raise serializers.ValidationError('Нужен хотя бы один ингредиент.')
-        ids = [item['id'].id for item in value]
-        if len(ids) != len(set(ids)):
-            raise serializers.ValidationError('Ингредиенты не должны повторяться.')
+        uniq_ids = {item['id'].id for item in value}
+        if len(uniq_ids) != len(value):
+            raise serializers.ValidationError(
+                'Ингредиенты не должны повторяться.'
+            )
         return value
 
     def validate_image(self, value):
@@ -78,11 +87,13 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def get_is_favorited(self, obj):
         user = self.context.get('request').user
-        return user.is_authenticated and obj.favorited.filter(user=user).exists()
+        return (user.is_authenticated
+                and obj.favorited.filter(user=user).exists())
 
     def get_is_in_shopping_cart(self, obj):
         user = self.context.get('request').user
-        return user.is_authenticated and obj.in_shopping_cart.filter(user=user).exists()
+        return (user.is_authenticated
+                and obj.in_shopping_cart.filter(user=user).exists())
 
     def create_ingredients(self, recipe, ingredients):
         RecipeIngredient.objects.bulk_create(
@@ -107,7 +118,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         return instance
 
     def validate(self, attrs):
-        if self.instance and self.context['request'].method in ('PUT', 'PATCH'):
+        method = self.context['request'].method
+        if self.instance and method in ('PUT', 'PATCH'):
             if 'ingredients' not in self.initial_data:
                 raise serializers.ValidationError({
                     'ingredients': 'Нужен хотя бы один ингредиент.'

@@ -13,33 +13,32 @@ class UserSerializer(DjoserUserSerializer):
     class Meta(DjoserUserSerializer.Meta):
         model = User
         fields = [
-            'email',
-            'id',
-            'username',
-            'first_name',
-            'last_name',
-            'is_subscribed',
-            'avatar',
+            'email', 'id', 'username', 'first_name',
+            'last_name', 'is_subscribed', 'avatar',
         ]
         read_only_fields = fields
 
     def get_is_subscribed(self, user):
         request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return False
-        return Subscription.objects.filter(user=request.user, author=user).exists()
+        return (
+            request
+            and request.user.is_authenticated
+            and Subscription.objects.filter(
+                user=request.user, author=user
+            ).exists()
+        )
 
 
 class SubscriptionUserSerializer(UserSerializer):
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.IntegerField(source='recipes.count', read_only=True)
+    recipes_count = serializers.IntegerField(
+        source='recipes.count',
+        read_only=True
+    )
 
     class Meta(UserSerializer.Meta):
-        fields = (
-            'id', 'email', 'username',
-            'first_name', 'last_name',
-            'is_subscribed', 'avatar',
-            'recipes', 'recipes_count'
+        fields = ('recipes', 'recipes_count') + tuple(
+            UserSerializer.Meta.fields
         )
         read_only_fields = fields
 
@@ -50,4 +49,8 @@ class SubscriptionUserSerializer(UserSerializer):
         recipes = user.recipes.all()
         if recipes_limit and recipes_limit.strip().isdigit():
             recipes = recipes[:int(recipes_limit.strip())]
-        return ShortRecipeSerializer(recipes, many=True, context={'request': request}).data
+        return ShortRecipeSerializer(
+            recipes,
+            many=True,
+            context={'request': request}
+        ).data
