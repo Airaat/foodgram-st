@@ -33,82 +33,107 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserCreateSerializer
         return UserSerializer
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def get_permissions(self):
+        auth_actions = {'me', 'avatar', 'subscribe',
+                        'subscriptions', 'set_password'}
+        if self.action in auth_actions:
+            return [IsAuthenticated()]
+
+        return super().get_permissions()
+
+    @action(detail=False, methods=['get'])
     def me(self, request):
         serializer = self.get_serializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data)
 
-    @action(detail=False, methods=['put', 'delete'], url_path='me/avatar', permission_classes=[IsAuthenticated])
+    def _avatar_update(self, user, avatar_data):
+        try:
+            user.avatar = Base64ImageField().to_internal_value(avatar_data)
+            user.save()
+
+            with user.avatar.open("rb") as f:
+                encoded = base64.b64encode(f.read()).decode('utf-8')
+                ext = user.avatar.name.split('.')[-1]
+                mime = f"image/{ext if ext != 'jpg' else 'jpeg'}"
+                avatar_response = f"data:{mime};base64,{encoded}"
+
+            return Response({'avatar': avatar_response})
+        except Exception:
+            return Response(
+                {'error': 'Невалидный формат изображения'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['put', 'delete'], url_path='me/avatar')
     def avatar(self, request):
         user = request.user
 
         if request.method == 'PUT':
             avatar_data = request.data.get('avatar')
             if not avatar_data:
-                return Response({'error': 'Аватар не был передан'}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                field = Base64ImageField()
-                user.avatar = field.to_internal_value(avatar_data)
-                user.save()
-
-                with user.avatar.open("rb") as f:
-                    encoded = base64.b64encode(f.read()).decode('utf-8')
-                    ext = user.avatar.name.split('.')[-1]
-                    mime = f"image/{ext if ext != 'jpg' else 'jpeg'}"
-                    avatar_response = f"data:{mime};base64,{encoded}"
-
-                return Response({'avatar': avatar_response}, status=status.HTTP_200_OK)
-            except Exception:
-                return Response({'error': 'Невалидный формат изображения'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {'error': 'Аватар не был передан'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            return self._avatar_update(user, avatar_data)
 
         elif request.method == 'DELETE':
             user.avatar.delete(save=True)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post', 'delete'])
     def subscribe(self, request, pk=None):
         author = get_object_or_404(User, pk=pk)
         user = request.user
+        subscription_exists = Subscription.objects.filter(
+            user=user, author=author
+        )
 
         if request.method == 'POST':
-            if Subscription.objects.filter(user=user, author=author).exists():
+            if subscription_exists:
                 return Response(
                     {"errors": "Вы уже подписаны на этого пользователя."},
-                    status=400
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
             if user == author:
                 return Response(
                     {"errors": "Нельзя подписаться на самого себя."},
-                    status=400
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
             Subscription.objects.create(user=user, author=author)
-            serializer = SubscriptionUserSerializer(author, context={'request': request})
-            return Response(serializer.data, status=201)
+            serializer = SubscriptionUserSerializer(
+                author, context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        deleted, _ = Subscription.objects.filter(user=user, author=author).delete()
-        if deleted:
-            return Response(status=204)
-        return Response(
-            {"errors": "Вы не были подписаны на этого пользователя."},
-            status=400
-        )
+        if not subscription_exists:
+            return Response(
+                {"errors": "Вы не были подписаны на этого пользователя."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+        Subscription.objects.filter(user=user, author=author).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'])
     def subscriptions(self, request):
         user = request.user
         subscriptions = User.objects.filter(subscribers__user=user).annotate(
             recipes_count=Count('recipes')
         )
         page = self.paginate_queryset(subscriptions)
-        serializer = SubscriptionUserSerializer(page, many=True, context={'request': request})
+        serializer = SubscriptionUserSerializer(
+            page, many=True, context={'request': request}
+        )
         return self.get_paginated_response(serializer.data)
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['post'])
     def set_password(self, request):
-        serializer = SetPasswordSerializer(data=request.data, context={'request': request})
+        serializer = SetPasswordSerializer(
+            data=request.data, context={'request': request}
+        )
         serializer.is_valid(raise_exception=True)
         request.user.set_password(serializer.validated_data['new_password'])
         request.user.save()

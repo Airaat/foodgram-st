@@ -23,7 +23,6 @@ from recipes.models import (
     Favorite, RecipeIngredient
 )
 
-
 User = get_user_model()
 
 
@@ -49,12 +48,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
 
     def get_permissions(self):
-        if self.action in ['create', 'favorite', 'shopping_cart', 'download_shopping_cart']:
+        auth_actions = {'create', 'favorite',
+                        'shopping_cart', 'download_shopping_cart'}
+        if self.action in auth_actions:
             return [IsAuthenticated()]
+        elif self.action == 'get_link':
+            return [AllowAny()]
+
         return super().get_permissions()
 
     def get_serializer_class(self):
-        if self.action in ['favorite', 'shopping_cart']:
+        if self.action in {'favorite', 'shopping_cart'}:
             return ShortRecipeSerializer
         return super().get_serializer_class()
 
@@ -64,9 +68,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
-        author = self.request.query_params.get('author')
-        is_favorited = self.request.query_params.get('is_favorited')
-        is_in_shopping_cart = self.request.query_params.get('is_in_shopping_cart')
+        params = self.request.query_params
+
+        author = params.get('author')
+        is_favorited = params.get('is_favorited')
+        is_in_shopping_cart = params.get('is_in_shopping_cart')
 
         if author:
             queryset = queryset.filter(author__id=author)
@@ -79,7 +85,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         return queryset
 
-    def _handle_post_delete_action(self, request, recipe, model):
+    def _post_delete_action(self, request, recipe, model):
         label_map = {
             'Favorite': 'в избранное',
             'ShoppingCart': 'в корзину покупок'
@@ -87,39 +93,36 @@ class RecipeViewSet(viewsets.ModelViewSet):
         label = label_map.get(model.__name__, 'в список')
 
         if request.method == 'POST':
-            obj, created = model.objects.get_or_create(user=request.user, recipe=recipe)
+            obj, created = model.objects.get_or_create(
+                user=request.user, recipe=recipe
+            )
+
             if not created:
-                return Response(
-                    {"errors": f"Рецепт «{recipe.name}» уже добавлен {label} (id={recipe.id})."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            serializer = ShortRecipeSerializer(recipe, context={'request': request})
+                data = {"errors": f"Рецепт «{recipe.name}» уже добавлен {label}."}
+                return Response(data, status=status.HTTP_400_BAD_REQUEST)
+
+            context = {'request': request}
+            serializer = ShortRecipeSerializer(recipe, context=context)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         obj = model.objects.filter(user=request.user, recipe=recipe).first()
         if not obj:
-            return Response(
-                {"errors": f"Рецепт «{recipe.name}» не найден {label} (id={recipe.id})."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            data = {"errors": f"Рецепт «{recipe.name}» не найден {label}."}
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post', 'delete'])
     def favorite(self, request, pk=None):
         recipe = self.get_object()
-        return self._handle_post_delete_action(
-            request, recipe, Favorite
-        )
+        return self._post_delete_action(request, recipe, Favorite)
 
-    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['post', 'delete'])
     def shopping_cart(self, request, pk=None):
         recipe = self.get_object()
-        return self._handle_post_delete_action(
-            request, recipe, ShoppingCart
-        )
+        return self._post_delete_action(request, recipe, ShoppingCart)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def download_shopping_cart(self, request):
         user = request.user
         ingredients = RecipeIngredient.objects.filter(
@@ -131,7 +134,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         recipes = Recipe.objects.filter(in_shopping_cart__user=user)
 
-        lines = [f'Список покупок — {datetime.now().strftime("%d.%m.%Y %H:%M")}', '']
+        timestamp = datetime.now().strftime("%d.%m.%Y %H:%M")
+        lines = [f'Список покупок — {timestamp}', '']
 
         for i, item in enumerate(ingredients, start=1):
             name = item["ingredient__name"].capitalize()
@@ -139,22 +143,24 @@ class RecipeViewSet(viewsets.ModelViewSet):
             amount = item["total"]
             lines.append(f"{i}. {name} ({unit}) — {amount}")
 
-        lines.append('\nРецепты в списке покупок:\n')
+        lines.extend(['', 'Рецепты в списке покупок:', ''])
         for recipe in recipes:
-            lines.append(f'— {recipe.name} (автор: {recipe.author.get_full_name() or recipe.author.username})')
+            author = recipe.author.get_full_name() or recipe.author.username
+            lines.append(f'— {recipe.name} (автор: {author})')
 
         content = '\n'.join(lines)
         return FileResponse(
             content,
             as_attachment=True,
-            filename='shopping_list.txt'
+            filename='shopping_list.txt',
+            content_type='text/plain'
         )
 
-    @action(detail=True, methods=['get'], url_path='get-link', permission_classes=[AllowAny])
+    @action(detail=True, methods=['get'], url_path='get-link')
     def get_link(self, request, pk=None):
         get_object_or_404(Recipe, pk=pk)
-
-        short_path = reverse('recipes:short-link-redirect', kwargs={'recipe_id': pk})
-        full_url = request.build_absolute_uri(short_path)
-
-        return Response({'short-link': full_url}, status=status.HTTP_200_OK)
+        kwargs = {'recipe_id': pk}
+        short_path = reverse('recipes:short-link-redirect', kwargs=kwargs)
+        return Response({
+            'short-link': request.build_absolute_uri(short_path)
+        })
